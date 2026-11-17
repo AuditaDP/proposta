@@ -3,6 +3,9 @@
     "api/assistente.js": {
       "maxDuration": 300,
       "includeFiles": "prompts/**"
+    },
+    "api/cct.js": {
+      "maxDuration": 300
     }
   }
 }

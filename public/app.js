@@ -6,6 +6,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 const classeStatus = (s) => (s === 'CONFORME' ? 'CONFORME' : s === 'NÃO CONFORME' ? 'NAO' : 'RESSALVAS');
 const ROTULO = { conforme: 'Conforme', ressalva: 'Ressalva', nao_conforme: 'Não conforme', operacional: 'Operacional' };
 let ultimo = null;
+let estadoCct = null; // regras da convenção coletiva em revisão ou aplicadas
 
 // ---------- formulário ----------
 $('regime').innerHTML = Object.values(REGIMES).map((r) => `<option value="${r.id}">${esc(r.nome)}</option>`).join('');
@@ -60,6 +61,7 @@ function lerFormulario() {
       return { nome, sexo: (sexo || '').toUpperCase().startsWith('F') ? 'F' : 'M' };
     }).filter((f) => f.nome),
     cctAnalisada: $('cct').checked,
+    cct: estadoCct && estadoCct.aplicada ? estadoCct : null,
     permiteCompensacao: $('comp').checked,
     aplicarArt386: $('art386').checked,
   };
@@ -204,10 +206,157 @@ async function perguntar() {
   }
 }
 
+
+// ---------- convenção coletiva ----------
+const CAMPOS_CCT = [
+  ['jornadaSemanalHoras', 'Jornada semanal (horas)', 'num'],
+  ['jornadaDiariaHoras', 'Jornada diária (horas)', 'num'],
+  ['compensacaoDeJornada', 'Compensação de jornada', 'bool'],
+  ['bancoDeHoras', 'Banco de horas', 'bool'],
+  ['escala12x36', 'Escala 12x36', 'bool'],
+  ['trabalhoAosDomingos', 'Trabalho aos domingos', 'bool'],
+  ['folgaDominicalACadaSemanas', 'Folga no domingo a cada (semanas)', 'num'],
+  ['trabalhoEmFeriados', 'Trabalho em feriados', 'bool'],
+  ['condicoesFeriados', 'Condições para feriados', 'texto'],
+  ['adicionalHoraExtraPercentual', 'Adicional de hora extra (%)', 'num'],
+  ['adicionalDomingoFeriadoPercentual', 'Adicional de domingo/feriado (%)', 'num'],
+  ['adicionalNoturnoPercentual', 'Adicional noturno (%)', 'num'],
+  ['intervaloIntrajornadaMinutos', 'Intervalo para refeição (min)', 'num'],
+];
+const IDENT_CCT = [
+  ['nome', 'Nome do instrumento', 'text'],
+  ['categoria', 'Categoria', 'text'],
+  ['baseTerritorial', 'Base territorial', 'text'],
+  ['vigenciaInicio', 'Vigência: início', 'date'],
+  ['vigenciaFim', 'Vigência: fim', 'date'],
+];
+
+function cctVazia() {
+  return {
+    identificacao: {},
+    regras: Object.fromEntries(CAMPOS_CCT.map(([k]) => [k, { valor: null, clausula: null, trecho: null }])),
+    outrasClausulasRelevantes: [],
+    alertas: [],
+    aplicada: false,
+  };
+}
+
+function renderCct() {
+  const painel = $('painelCct');
+  if (!estadoCct) { painel.hidden = true; return; }
+  painel.hidden = false;
+  const id = estadoCct.identificacao || {};
+  $('cctIdent').innerHTML = IDENT_CCT.map(([k, rot, tipo]) =>
+    `<label>${rot}<input type="${tipo}" id="cctId_${k}" value="${esc(id[k] ?? '')}"></label>`).join('');
+  $('cctRegras').innerHTML = CAMPOS_CCT.map(([k, rot, tipo]) => {
+    const r = estadoCct.regras[k] || {};
+    const v = r.valor;
+    const campo = tipo === 'bool'
+      ? `<select id="cctV_${k}" aria-label="${rot}"><option value="">Não trata</option><option value="sim"${v === true ? ' selected' : ''}>Sim</option><option value="nao"${v === false ? ' selected' : ''}>Não</option></select>`
+      : `<input id="cctV_${k}" type="${tipo === 'num' ? 'number' : 'text'}" step="any" value="${esc(v ?? '')}" aria-label="${rot}">`;
+    return `<tr class="${v != null ? 'preenchida' : ''}"><td>${rot}</td><td>${campo}</td>
+      <td><input id="cctC_${k}" type="text" value="${esc(r.clausula ?? '')}" aria-label="Cláusula: ${rot}"></td>
+      <td class="trecho">${r.trecho ? `“${esc(r.trecho)}”` : '—'}</td></tr>`;
+  }).join('');
+  const outras = estadoCct.outrasClausulasRelevantes || [];
+  const alertas = estadoCct.alertas || [];
+  $('cctExtras').innerHTML =
+    (alertas.length ? `<h3>Pontos de atenção</h3><ul class="cct-lista">${alertas.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>` : '') +
+    (outras.length ? `<h3>Outras cláusulas sobre jornada</h3><ul class="cct-lista">${outras.map((o) => `<li><b>Cláusula ${esc(o.clausula)}</b> (${esc(o.tema)}): ${esc(o.resumo)}</li>`).join('')}</ul>` : '');
+  $('cctConferida').checked = estadoCct.aplicada;
+  $('aplicarCct').disabled = !estadoCct.aplicada;
+  mensagemCct(estadoCct.aplicada ? 'Regras aplicadas à escala.' : '', 'ok');
+}
+
+function lerTabelaCct() {
+  for (const [k] of IDENT_CCT) estadoCct.identificacao[k] = $(`cctId_${k}`).value.trim() || null;
+  for (const [k, , tipo] of CAMPOS_CCT) {
+    const bruto = $(`cctV_${k}`).value.trim();
+    const valor = bruto === '' ? null : tipo === 'bool' ? bruto === 'sim' : tipo === 'num' ? Number(bruto) : bruto;
+    estadoCct.regras[k] = { ...estadoCct.regras[k], valor, clausula: $(`cctC_${k}`).value.trim() || null };
+  }
+  estadoCct.nome = estadoCct.identificacao.nome;
+  estadoCct.vigenciaInicio = estadoCct.identificacao.vigenciaInicio;
+  estadoCct.vigenciaFim = estadoCct.identificacao.vigenciaFim;
+}
+
+function statusCct(texto, tipo = '') { $('statusCct').textContent = texto; $('statusCct').className = `nota ${tipo}`; }
+function mensagemCct(texto, tipo = '') { $('cctMsg').textContent = texto; $('cctMsg').className = `nota ${tipo}`; }
+
+function lerArquivoBase64(arquivo) {
+  return new Promise((ok, falha) => {
+    const leitor = new FileReader();
+    leitor.onload = () => ok(String(leitor.result).split(',')[1] || '');
+    leitor.onerror = () => falha(new Error('Não foi possível abrir o arquivo.'));
+    leitor.readAsDataURL(arquivo);
+  });
+}
+
+async function lerCct() {
+  const arquivo = $('arquivoCct').files[0];
+  if (!arquivo) return statusCct('Escolha o arquivo da convenção primeiro.', 'erro');
+  const ext = arquivo.name.toLowerCase().split('.').pop();
+  if (ext === 'doc') return statusCct('Arquivos .doc (Word antigo) não são aceitos. Abra no Word e use "Salvar como" → .docx ou PDF.', 'erro');
+  if (ext !== 'pdf' && ext !== 'docx') return statusCct('Envie a convenção em PDF ou Word (.docx).', 'erro');
+  if (arquivo.size > 3 * 1024 * 1024) return statusCct('O arquivo passa de 3 MB. Envie a versão em Word (.docx) ou um PDF menor.', 'erro');
+  const botao = $('lerCct');
+  botao.disabled = true;
+  botao.textContent = 'Lendo…';
+  statusCct('Lendo a convenção. Isso pode levar até 2 minutos.');
+  try {
+    const base64 = await lerArquivoBase64(arquivo);
+    const r = await fetch('api/cct', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nomeArquivo: arquivo.name, base64 }),
+    });
+    const dados = await r.json().catch(() => null);
+    if (!r.ok || !dados?.cct) throw new Error(dados?.erro || 'servico');
+    estadoCct = { ...cctVazia(), ...dados.cct, aplicada: false };
+    estadoCct.regras = { ...cctVazia().regras, ...dados.cct.regras };
+    renderCct();
+    statusCct('Convenção lida. Confira as regras no painel ao lado e clique em "Aplicar à escala".', 'ok');
+    $('painelCct').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    statusCct(e.message && e.message !== 'servico' && e.message !== 'Failed to fetch'
+      ? e.message
+      : 'A leitura automática só funciona na versão publicada do sistema. Use "Preencher à mão" para digitar as regras.', 'erro');
+  } finally {
+    botao.disabled = false;
+    botao.textContent = 'Ler convenção';
+  }
+}
+
+$('lerCct').addEventListener('click', lerCct);
+$('manualCct').addEventListener('click', () => {
+  if (!estadoCct) estadoCct = cctVazia();
+  renderCct();
+  $('painelCct').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+$('cctConferida').addEventListener('change', () => { $('aplicarCct').disabled = !$('cctConferida').checked; });
+$('aplicarCct').addEventListener('click', () => {
+  lerTabelaCct();
+  estadoCct.aplicada = true;
+  gerar();
+  renderCct();
+  mensagemCct('Regras aplicadas. A escala e a verificação de conformidade foram atualizadas.', 'ok');
+});
+$('removerCct').addEventListener('click', () => {
+  estadoCct = null;
+  $('arquivoCct').value = '';
+  statusCct('');
+  renderCct();
+  gerar();
+});
+$('painelCct').addEventListener('input', (ev) => {
+  if (ev.target.id === 'cctConferida' || !estadoCct?.aplicada) return;
+  mensagemCct('Há alterações ainda não aplicadas. Clique em "Aplicar à escala".');
+});
+
 // ---------- eventos ----------
 $('regime').addEventListener('change', aplicarRegime);
 $('form').addEventListener('submit', (ev) => { ev.preventDefault(); gerar(); });
-$('exemplo').addEventListener('click', () => { preencher(EXEMPLO); gerar(); });
+$('exemplo').addEventListener('click', () => { estadoCct = null; renderCct(); preencher(EXEMPLO); gerar(); });
 $('perguntar').addEventListener('click', perguntar);
 $('copiar').addEventListener('click', async () => {
   if (!ultimo) return;

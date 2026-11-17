@@ -81,8 +81,19 @@
     </section>
 
     <section>
-      <h2>Instrumento coletivo e opções</h2>
-      <label class="check"><input id="cct" type="checkbox"> A CCT/ACT da categoria foi conferida</label>
+      <h2>Convenção coletiva (CCT/ACT)</h2>
+      <label for="arquivoCct">Anexe a convenção ou o acordo em PDF ou Word (.docx), até 3 MB</label>
+      <input id="arquivoCct" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+      <div class="acoes">
+        <button type="button" id="lerCct" class="secundario">Ler convenção</button>
+        <button type="button" id="manualCct" class="texto">Preencher à mão</button>
+      </div>
+      <p id="statusCct" class="nota" aria-live="polite"></p>
+    </section>
+
+    <section>
+      <h2>Outras opções</h2>
+      <label class="check"><input id="cct" type="checkbox"> Conferi a CCT/ACT por fora, sem anexar</label>
       <label class="check"><input id="comp" type="checkbox"> Existe acordo de compensação de jornada válido</label>
       <label class="check"><input id="art386" type="checkbox"> Aplicar folga dominical quinzenal para mulheres (CLT art. 386)</label>
     </section>
@@ -96,6 +107,22 @@
 
   <div class="saida">
     <section class="painel" id="resumo" aria-live="polite"></section>
+    <section class="painel cct" id="painelCct" hidden>
+      <h2>Regras da convenção coletiva</h2>
+      <p class="nota">Confira cada linha com o texto da convenção. Você pode corrigir qualquer valor antes de aplicar. Campos vazios significam que a convenção não trata do tema.</p>
+      <div id="cctIdent" class="cct-ident"></div>
+      <div class="tabela-rolagem"><table class="regras-cct">
+        <thead><tr><th>Regra</th><th>Valor</th><th>Cláusula</th><th>Trecho da convenção</th></tr></thead>
+        <tbody id="cctRegras"></tbody>
+      </table></div>
+      <div id="cctExtras"></div>
+      <label class="check"><input type="checkbox" id="cctConferida"> Conferi estas regras com o texto da convenção</label>
+      <div class="acoes">
+        <button type="button" id="aplicarCct" class="primario" disabled>Aplicar à escala</button>
+        <button type="button" id="removerCct" class="secundario">Remover convenção</button>
+      </div>
+      <p id="cctMsg" class="nota" aria-live="polite"></p>
+    </section>
     <section class="painel">
       <h2>Comparação entre as fases da transição</h2>
       <p class="nota">Mesmo cenário calculado em cada regra. Ajuda a decidir contratações e horários.</p>

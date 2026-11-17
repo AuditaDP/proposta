@@ -88,6 +88,40 @@ function geradorAleatorio(semente) {
 export function normalizarConfig(cfg) {
   const regime = { jornadaDiariaMax: 8, ...REGIMES[cfg.regimeId || 'ec141e2'], ...(cfg.regime || {}) };
   const atividade = cfg.atividade || 'comercio';
+  // Lei 10.101/2000, art. 6º, parágrafo único: no comércio, folga no domingo
+  // ao menos 1 vez a cada 3 semanas (salvo regra mais favorável em CCT).
+  let domingoACadaSemanas = cfg.domingoACadaSemanas ?? (atividade === 'comercio' ? 3 : null);
+  let permiteCompensacao = !!cfg.permiteCompensacao;
+  let cctAnalisada = !!cfg.cctAnalisada;
+  const notasCCT = [];
+
+  // Regras da convenção coletiva conferidas pelo usuário. A CCT só é aplicada
+  // quando é mais favorável ao trabalhador ou quando a lei delega a ela.
+  const cct = cfg.cct && cfg.cct.aplicada ? cfg.cct : null;
+  if (cct) {
+    cctAnalisada = true;
+    const v = (k) => cct.regras?.[k]?.valor;
+    const ref = (k) => (cct.regras?.[k]?.clausula ? ` (cláusula ${cct.regras[k].clausula})` : '');
+    const sem = Number(v('jornadaSemanalHoras'));
+    if (sem > 0 && sem < regime.horasSemanais) {
+      regime.horasSemanais = sem;
+      notasCCT.push(`jornada semanal de ${sem}h${ref('jornadaSemanalHoras')}`);
+    }
+    const dia = Number(v('jornadaDiariaHoras'));
+    if (dia > 0 && dia < regime.jornadaDiariaMax) {
+      regime.jornadaDiariaMax = dia;
+      notasCCT.push(`jornada diária de ${dia}h${ref('jornadaDiariaHoras')}`);
+    }
+    if (v('compensacaoDeJornada') === true) { permiteCompensacao = true; notasCCT.push(`compensação de jornada autorizada${ref('compensacaoDeJornada')}`); }
+    if (v('compensacaoDeJornada') === false) { permiteCompensacao = false; notasCCT.push(`compensação de jornada vedada${ref('compensacaoDeJornada')}`); }
+    const dom = Number(v('folgaDominicalACadaSemanas'));
+    if (dom > 0) {
+      const novo = domingoACadaSemanas ? Math.min(domingoACadaSemanas, dom) : dom;
+      if (novo !== domingoACadaSemanas) notasCCT.push(`folga no domingo a cada ${novo} semana(s)${ref('folgaDominicalACadaSemanas')}`);
+      domingoACadaSemanas = novo;
+    }
+  }
+
   return {
     empresa: cfg.empresa || '',
     atividade,
@@ -97,12 +131,12 @@ export function normalizarConfig(cfg) {
     funcionamento: cfg.funcionamento,
     minimoPorDia: cfg.minimoPorDia.map((n) => Math.max(0, Number(n) || 0)),
     funcionarios: cfg.funcionarios.filter((f) => f && f.nome),
-    // Lei 10.101/2000, art. 6º, parágrafo único: no comércio, folga no domingo
-    // ao menos 1 vez a cada 3 semanas (salvo regra mais favorável em CCT).
-    domingoACadaSemanas: cfg.domingoACadaSemanas ?? (atividade === 'comercio' ? 3 : null),
+    domingoACadaSemanas,
     aplicarArt386: !!cfg.aplicarArt386,
-    permiteCompensacao: !!cfg.permiteCompensacao,
-    cctAnalisada: !!cfg.cctAnalisada,
+    permiteCompensacao,
+    cctAnalisada,
+    cct,
+    notasCCT,
   };
 }
 
@@ -324,7 +358,7 @@ export function auditar(c, escala) {
     add('Jornada diária', 'CF art. 7º, XIII; CLT arts. 58 e 59', 'nao_conforme',
       `Acima de ${c.regime.jornadaDiariaMax}h sem acordo de compensação, ou acima de 10h: ${resumo(excDia)}`);
   else if (excComp.length)
-    add('Jornada diária', 'CF art. 7º, XIII; CLT art. 59, §§ 2º, 5º e 6º; Súmula 85 do TST', 'ressalva',
+    add('Jornada diária', `CF art. 7º, XIII; CLT art. 59, §§ 2º, 5º e 6º; Súmula 85 do TST${c.cct?.regras?.compensacaoDeJornada?.clausula ? `; CCT, cláusula ${c.cct.regras.compensacaoDeJornada.clausula}` : ''}`, 'ressalva',
       `Acima de ${c.regime.jornadaDiariaMax}h em ${excComp.length} jornada(s), o que só é válido com acordo de compensação formalizado (conferir a CCT). Ex.: ${resumo(excComp)}`);
   else add('Jornada diária', 'CF art. 7º, XIII; CLT art. 58', 'conforme', `Nenhuma jornada acima de ${c.regime.jornadaDiariaMax}h.`);
 
@@ -348,7 +382,8 @@ export function auditar(c, escala) {
     }
     memoria.push({ nome: nomes[e], semanas });
   }
-  add('Jornada semanal', `${c.regime.fundamento}`, excSem.length ? 'nao_conforme' : 'conforme',
+  const clSem = c.notasCCT?.some((n) => n.startsWith('jornada semanal')) && c.cct?.regras?.jornadaSemanalHoras?.clausula;
+  add('Jornada semanal', `${c.regime.fundamento}${clSem ? `; CCT, cláusula ${clSem}` : ''}`, excSem.length ? 'nao_conforme' : 'conforme',
     excSem.length ? resumo(excSem) : `Todas as semanas dentro de ${c.regime.horasSemanais}h.`);
   add('Folgas por semana', c.regime.folgasMinSemana >= 2 ? 'CF art. 7º, na redação da EC 141/2026' : 'CF art. 7º, XV; CLT art. 67; Lei 605/1949',
     folgasErr.length ? 'nao_conforme' : 'conforme',
@@ -382,7 +417,9 @@ export function auditar(c, escala) {
   if (c.domingoACadaSemanas) {
     const k = c.domingoACadaSemanas;
     const err = domAberto ? janelasSemDomingo(escala, k, W, nomes, () => true) : [];
-    add(`Folga no domingo a cada ${k} semanas`, 'Lei 10.101/2000, art. 6º, parágrafo único (comércio)', err.length ? 'nao_conforme' : 'conforme',
+    const fundDom = c.atividade === 'comercio' ? 'Lei 10.101/2000, art. 6º, parágrafo único (comércio)' : 'CCT da categoria';
+    const cl = c.cct?.regras?.folgaDominicalACadaSemanas?.clausula;
+    add(`Folga no domingo a cada ${k} semanas`, fundDom + (cl ? `; CCT, cláusula ${cl}` : ''), err.length ? 'nao_conforme' : 'conforme',
       err.length ? resumo(err) : domAberto ? `Todos folgam pelo menos 1 domingo a cada ${k} semanas.` : 'Estabelecimento fechado aos domingos.');
   }
   if (c.aplicarArt386) {
@@ -399,12 +436,28 @@ export function auditar(c, escala) {
     add('Trabalho noturno', 'CLT art. 73 (hora reduzida de 52min30s e adicional de 20%)', 'ressalva',
       `Há trabalho após 22h: considerar hora reduzida e adicional. Ex.: ${resumo(noturno)}`);
 
-  if (c.atividade === 'comercio')
-    add('Trabalho em feriados', 'Lei 10.101/2000, art. 6º-A', 'ressalva',
-      'No comércio, trabalhar em feriados exige autorização em convenção coletiva e respeito à lei municipal. A escala não trata feriados.');
+  const regraCCT = (k) => c.cct?.regras?.[k] || {};
+  const clausula = (k) => (regraCCT(k).clausula ? `; CCT, cláusula ${regraCCT(k).clausula}` : '');
+  const feriadoCCT = regraCCT('trabalhoEmFeriados').valor;
+  if (c.atividade === 'comercio' || feriadoCCT != null) {
+    const cond = regraCCT('condicoesFeriados').valor;
+    add('Trabalho em feriados', `Lei 10.101/2000, art. 6º-A${clausula('trabalhoEmFeriados')}`, 'ressalva',
+      feriadoCCT === true ? `A CCT autoriza o trabalho em feriados${cond ? `: ${cond}` : ''}. Conferir também a lei municipal. A escala ainda não marca os feriados.`
+      : feriadoCCT === false ? 'A CCT não autoriza o trabalho em feriados: não escale ninguém nesses dias.'
+      : 'No comércio, trabalhar em feriados exige autorização em convenção coletiva e respeito à lei municipal. A escala não trata feriados.');
+  }
 
-  add('Instrumento coletivo (CCT/ACT)', 'CF art. 7º, XXVI; CLT arts. 611-A e 611-B', c.cctAnalisada ? 'conforme' : 'ressalva',
-    c.cctAnalisada ? 'Usuário informou que a CCT/ACT aplicável foi conferida.' : 'A CCT/ACT da categoria ainda não foi conferida. Ela pode trazer regras mais restritivas (domingos, compensação, escalas permitidas).');
+  if (c.cct) {
+    const fim = c.cct.vigenciaFim;
+    const vencida = fim && c.inicio && fim < c.inicio;
+    add('Instrumento coletivo (CCT/ACT)', `CF art. 7º, XXVI; CLT arts. 611-A, 611-B e 614, § 3º${c.cct.nome ? `; ${c.cct.nome}` : ''}`,
+      vencida ? 'ressalva' : 'conforme',
+      (vencida ? `A CCT informada terminou em ${fim.split('-').reverse().join('/')}, antes do início da escala: confirme se há instrumento novo. ` : '') +
+      (c.notasCCT.length ? `Regras da CCT aplicadas à escala: ${c.notasCCT.join('; ')}.` : 'CCT conferida; nenhuma regra dela é mais restritiva que a lei nos pontos que o motor verifica.'));
+  } else {
+    add('Instrumento coletivo (CCT/ACT)', 'CF art. 7º, XXVI; CLT arts. 611-A e 611-B', c.cctAnalisada ? 'conforme' : 'ressalva',
+      c.cctAnalisada ? 'Usuário informou que a CCT/ACT aplicável foi conferida.' : 'A CCT/ACT da categoria ainda não foi conferida. Anexe o arquivo para que as regras dela entrem na escala.');
+  }
 
   // cobertura operacional (não é regra jurídica)
   const cobertura = [];

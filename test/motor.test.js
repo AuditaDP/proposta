@@ -53,3 +53,32 @@ test('comparação traz os três regimes', () => {
   assert.equal(r.length, 3);
   assert.ok(r.every((x) => x.quadroMinimo > 0));
 });
+
+test('regras da CCT entram na escala e na auditoria', () => {
+  const cct = {
+    aplicada: true,
+    nome: 'CCT Comerciários 2026/2027',
+    vigenciaFim: '2026-12-31',
+    regras: {
+      jornadaSemanalHoras: { valor: 40, clausula: '12ª' },
+      folgaDominicalACadaSemanas: { valor: 2, clausula: '15ª' },
+      trabalhoEmFeriados: { valor: false, clausula: '18ª' },
+    },
+  };
+  const res = gerarEscala({ ...EXEMPLO, regimeId: 'ec141e1', inicio: '2027-01-04', cct });
+  assert.equal(res.config.regime.horasSemanais, 40);        // CCT mais favorável que 42h
+  assert.equal(res.config.domingoACadaSemanas, 2);          // CCT mais favorável que a lei (3)
+  assert.equal(situacao(res, 'Jornada diária'), 'conforme'); // 40h/5 = 8h, sem compensação
+  assert.equal(situacao(res, 'Folga no domingo a cada 2'), 'conforme');
+  const instr = res.auditoria.itens.find((i) => i.regra.startsWith('Instrumento coletivo'));
+  assert.equal(instr.situacao, 'ressalva');                 // CCT vencida antes do início
+  assert.match(instr.detalhe, /terminou em 31\/12\/2026/);
+  assert.match(res.auditoria.itens.find((i) => i.regra === 'Trabalho em feriados').detalhe, /não autoriza/);
+});
+
+test('CCT menos favorável que a lei não piora a escala', () => {
+  const cct = { aplicada: true, regras: { jornadaSemanalHoras: { valor: 44 }, folgaDominicalACadaSemanas: { valor: 7 } } };
+  const res = gerarEscala({ ...EXEMPLO, regimeId: 'ec141e2', cct });
+  assert.equal(res.config.regime.horasSemanais, 40);
+  assert.equal(res.config.domingoACadaSemanas, 3);
+});

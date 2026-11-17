@@ -102,6 +102,26 @@ table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
   background: var(--fundo); border: 1px solid var(--linha); border-radius: 4px; padding: 4px;
 }
 
+.texto { background: transparent; color: var(--destaque); border-color: transparent; text-decoration: underline; padding-inline: 4px; }
+input[type="file"] { font: inherit; font-size: 0.85rem; color: var(--tinta); max-width: 100%; }
+#statusCct.erro, #cctMsg.erro { color: var(--erro); }
+#statusCct.ok, #cctMsg.ok { color: var(--ok); }
+
+/* convenção coletiva */
+.cct { display: grid; gap: 12px; }
+.cct-ident { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 16px; }
+.cct-ident label { display: grid; gap: 3px; }
+.regras-cct { width: 100%; font-size: 0.85rem; }
+.regras-cct th, .regras-cct td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--linha); vertical-align: top; }
+.regras-cct th { font-weight: 500; color: var(--suave); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.regras-cct td:first-child { min-width: 170px; font-weight: 500; }
+.regras-cct input, .regras-cct select { width: 100%; min-width: 80px; padding: 4px 6px; font-size: 0.85rem; }
+.regras-cct td.trecho { color: var(--suave); font-size: 0.78rem; min-width: 220px; max-width: 420px; }
+.regras-cct tr.preenchida td:first-child { color: var(--destaque); }
+.cct-lista { margin: 4px 0 0; padding-left: 18px; font-size: 0.85rem; }
+.cct-lista li { margin-bottom: 4px; }
+.cct h3 { font-size: 0.95rem; margin: 8px 0 0; font-family: var(--fonte-titulo); }
+
 /* resumo */
 .status { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; }
 .selo { font-family: var(--fonte-titulo); font-weight: 700; font-size: 1.05rem; letter-spacing: 0.03em; padding: 6px 12px; border-radius: 5px; }

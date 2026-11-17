@@ -8,6 +8,7 @@ Ferramenta web para montar e auditar escalas de trabalho de acordo com a CLT, a 
 |---|---|---|
 | Motor de escalas | `public/motor.js` | Distribui folgas e turnos e confere cada regra (jornada, intervalos, 11h entre jornadas, descanso até o 7º dia, domingos no comércio, folgas da EC 141). Cálculo exato, sem IA. |
 | Tela | `public/index.html`, `public/app.js`, `public/styles.css` | Formulário, quadro da escala, comparação entre as fases da transição, verificações e memória de cálculo. |
+| Leitura da CCT | `api/cct.js` | Recebe a convenção em PDF ou Word (.docx, até 3 MB), extrai as regras de jornada e escala com a cláusula de origem e devolve uma tabela para o usuário conferir antes de aplicar. Regras da CCT só entram quando são mais favoráveis ao trabalhador. |
 | Especialista de IA | `api/assistente.js` + `prompts/agente-escalas.md` | Recebe a escala e a auditoria e responde perguntas jurídicas, com busca restrita a sites oficiais. |
 | Análise do prompt | `docs/analise-do-prompt.md` | O que foi aproveitado do prompt original e o que mudou. |
 
