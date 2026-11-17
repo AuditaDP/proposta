@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quadro de Horário</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topo">
+  <div class="topo-in">
+    <div>
+      <p class="sobretitulo">Protótipo · jornada, escalas e conformidade</p>
+      <h1>Quadro de Horário</h1>
+      <p class="lead">Monta a escala da equipe, confere cada regra da CLT, da EC 141/2026 e da categoria, e mostra o que precisa de ajuste.</p>
+    </div>
+    <aside class="aviso-legal" aria-label="Situação legislativa">
+      <strong>Situação legislativa (consulta em 17/11/2026)</strong>
+      <p>A <b>EC 141/2026</b> foi promulgada em 16/10/2026: 42h semanais e 2 folgas a partir de ~16/12/2026; 40h a partir de 16/12/2027. As datas vêm de notícias e precisam ser conferidas no texto oficial (Planalto/DOU).</p>
+    </aside>
+  </div>
+</header>
+
+<main class="grade">
+  <form id="form" class="painel entrada" autocomplete="off">
+    <section>
+      <h2>Empresa</h2>
+      <label for="empresa">Nome</label>
+      <input id="empresa" type="text">
+      <div class="linha2">
+        <div>
+          <label for="atividade">Atividade</label>
+          <select id="atividade">
+            <option value="comercio">Comércio</option>
+            <option value="outra">Outra atividade</option>
+          </select>
+        </div>
+        <div>
+          <label for="inicio">Início da escala</label>
+          <input id="inicio" type="date">
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Regime de jornada</h2>
+      <label for="regime">Regra aplicada</label>
+      <select id="regime"></select>
+      <div class="linha2">
+        <div>
+          <label for="horas">Horas por semana</label>
+          <input id="horas" type="number" min="1" max="44" step="1">
+        </div>
+        <div>
+          <label for="dias">Dias de trabalho por semana</label>
+          <input id="dias" type="number" min="1" max="6" step="1">
+        </div>
+      </div>
+      <label for="semanas">Ciclo da escala (semanas)</label>
+      <input id="semanas" type="number" min="1" max="8" step="1">
+    </section>
+
+    <section>
+      <h2>Funcionamento e cobertura</h2>
+      <div class="tabela-rolagem">
+        <table class="funcionamento">
+          <thead><tr><th>Dia</th><th>Abre?</th><th>Abre</th><th>Fecha</th><th>Mín. pessoas</th></tr></thead>
+          <tbody id="func"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Equipe</h2>
+      <label for="equipe">Uma pessoa por linha: <code>Nome; F</code> ou <code>Nome; M</code></label>
+      <textarea id="equipe" rows="7"></textarea>
+    </section>
+
+    <section>
+      <h2>Instrumento coletivo e opções</h2>
+      <label class="check"><input id="cct" type="checkbox"> A CCT/ACT da categoria foi conferida</label>
+      <label class="check"><input id="comp" type="checkbox"> Existe acordo de compensação de jornada válido</label>
+      <label class="check"><input id="art386" type="checkbox"> Aplicar folga dominical quinzenal para mulheres (CLT art. 386)</label>
+    </section>
+
+    <div class="acoes">
+      <button type="submit" class="primario">Gerar escala</button>
+      <button type="button" id="exemplo" class="secundario">Restaurar exemplo</button>
+    </div>
+    <p class="nota">Os dados preenchidos são um exemplo fictício.</p>
+  </form>
+
+  <div class="saida">
+    <section class="painel" id="resumo" aria-live="polite"></section>
+    <section class="painel">
+      <h2>Comparação entre as fases da transição</h2>
+      <p class="nota">Mesmo cenário calculado em cada regra. Ajuda a decidir contratações e horários.</p>
+      <div class="tabela-rolagem"><table class="comparacao" id="comparacao"></table></div>
+    </section>
+    <section class="painel">
+      <div class="cabecalho-secao">
+        <h2>Escala</h2>
+        <button type="button" id="copiar" class="secundario pequeno">Copiar como CSV</button>
+      </div>
+      <p class="legenda"><span class="t tA">A</span> abertura <span class="t tB">B</span> fechamento <span class="t tU">U</span> turno único <span class="t tF">—</span> folga</p>
+      <div class="tabela-rolagem" id="escala"></div>
+    </section>
+    <section class="painel">
+      <h2>Verificação de conformidade</h2>
+      <ul class="verificacoes" id="verificacoes"></ul>
+    </section>
+    <section class="painel">
+      <h2>Memória de cálculo</h2>
+      <div class="tabela-rolagem" id="memoria"></div>
+    </section>
+    <section class="painel ia">
+      <h2>Perguntar ao especialista</h2>
+      <p class="nota">A IA recebe a escala e a auditoria acima e responde com base na legislação e na CCT. Ela não refaz as contas: quem calcula é o motor.</p>
+      <label for="pergunta">Sua pergunta</label>
+      <textarea id="pergunta" rows="3">Como adequar esta escala para a fase de 42h sem precisar de acordo de compensação?</textarea>
+      <div class="acoes"><button type="button" id="perguntar" class="primario">Enviar pergunta</button></div>
+      <div id="resposta" class="resposta" aria-live="polite"></div>
+    </section>
+  </div>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>

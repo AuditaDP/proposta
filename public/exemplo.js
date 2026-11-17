@@ -1,0 +1,30 @@
+// Cenário de exemplo: loja de comércio aberta 7 dias por semana.
+export const EXEMPLO = {
+  empresa: 'Loja Exemplo Ltda.',
+  atividade: 'comercio',
+  regimeId: 'ec141e1',
+  inicio: '2026-12-21',
+  semanas: 4,
+  funcionamento: [
+    { aberto: true, abre: '08:00', fecha: '20:00' },
+    { aberto: true, abre: '08:00', fecha: '20:00' },
+    { aberto: true, abre: '08:00', fecha: '20:00' },
+    { aberto: true, abre: '08:00', fecha: '20:00' },
+    { aberto: true, abre: '08:00', fecha: '20:00' },
+    { aberto: true, abre: '08:00', fecha: '18:00' },
+    { aberto: true, abre: '09:00', fecha: '15:00' },
+  ],
+  minimoPorDia: [3, 3, 3, 3, 4, 4, 2],
+  funcionarios: [
+    { nome: 'Ana', sexo: 'F' },
+    { nome: 'Bruno', sexo: 'M' },
+    { nome: 'Carla', sexo: 'F' },
+    { nome: 'Diego', sexo: 'M' },
+    { nome: 'Elisa', sexo: 'F' },
+    { nome: 'Fábio', sexo: 'M' },
+    { nome: 'Gabi', sexo: 'F' },
+  ],
+  aplicarArt386: false,
+  permiteCompensacao: false,
+  cctAnalisada: false,
+};

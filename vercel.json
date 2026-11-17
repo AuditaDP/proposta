@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "api/assistente.js": {
+      "maxDuration": 300,
+      "includeFiles": "prompts/**"
+    }
+  }
+}

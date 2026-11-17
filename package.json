@@ -1,0 +1,14 @@
+{
+  "name": "assistente-escalas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Protótipo de ferramenta para montar e auditar escalas de trabalho (fim da 6x1, EC 141/2026, CLT e CCTs).",
+  "scripts": {
+    "test": "node --test",
+    "dev": "npx serve public"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.10.0"
+  }
+}
