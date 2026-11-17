@@ -12,13 +12,17 @@ const DOMINIOS_OFICIAIS = [
   'gov.br', 'tst.jus.br', 'stf.jus.br', 'mpt.mp.br', 'jus.br',
 ];
 
-const client = new Anthropic();
+let client = null;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ erro: 'Use POST.' });
   const { pergunta, contexto } = req.body || {};
   if (!pergunta || typeof pergunta !== 'string' || pergunta.length > 4000)
     return res.status(400).json({ erro: 'Escreva uma pergunta de até 4.000 caracteres.' });
+
+  if (!process.env.ANTHROPIC_API_KEY)
+    return res.status(503).json({ erro: 'O especialista de IA ainda não foi ativado: falta configurar a chave da API da Anthropic no servidor.' });
+  client ||= new Anthropic();
 
   const hoje = new Date().toISOString().slice(0, 10);
   const messages = [{
