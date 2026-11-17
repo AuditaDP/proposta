@@ -9,6 +9,8 @@
     "dev": "npx serve public"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.10.0"
+    "@anthropic-ai/sdk": "^1.10.0",
+    "mammoth": "^1.13.0",
+    "zod": "^4.6.7"
   }
 }
